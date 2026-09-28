@@ -1,0 +1,14 @@
+{
+  "name": "voidseeder",
+  "description": "Plugins do voidseeder para o Claude Code",
+  "owner": {
+    "name": "voidseeder"
+  },
+  "plugins": [
+    {
+      "name": "statusline",
+      "source": "./plugins/statusline",
+      "description": "Status line com projeto, branch, modelo, contexto e limites de uso de 5h e 7 dias."
+    }
+  ]
+}

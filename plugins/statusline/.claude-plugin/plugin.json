@@ -1,0 +1,10 @@
+{
+  "name": "statusline",
+  "version": "0.1.0",
+  "description": "Status line com projeto, branch, modelo, tamanho do contexto e limites de uso de 5h e 7 dias, com cores pastel.",
+  "author": { "name": "voidseeder" },
+  "homepage": "https://github.com/voidseeder/claude-cli-statusline",
+  "repository": "https://github.com/voidseeder/claude-cli-statusline",
+  "license": "MIT",
+  "keywords": ["statusline", "status-line", "rate-limits", "context"]
+}
