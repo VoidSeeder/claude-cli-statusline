@@ -23,12 +23,12 @@ Se `$ARGUMENTS` não estiver vazio, pule o fluxo guiado e rode direto:
    - `sugestoes`: nomes possíveis para o projeto;
    - `cores`: as cores de fundo disponíveis.
 
-2. **Setup global.** Se `global.estado` não for `plugin`, o setup global ainda não foi feito. Pergunte com `AskUserQuestion` se o usuário quer fazê-lo agora, explicando que ele grava em `~/.claude/settings.json` e mostra o nome da pasta em todos os projetos (se o estado for `outro`, avise que o `statusLine` atual será substituído). Se ele confirmar, rode `setup.py` sem argumentos (com `--forcar` se o estado era `outro`, já que a confirmação foi dada). Diga em uma linha que foi gravado, que a status line aparece na próxima atualização da interface e que rodar `/statusline:setup` de novo dentro de um projeto destaca o nome dele. Pare aqui, tenha ele confirmado ou não.
+2. **Setup global.** Se `global.estado` não for `plugin`, o setup global ainda não foi feito. Pergunte com `AskUserQuestion` se o usuário quer fazê-lo agora, explicando que ele grava em `~/.claude/settings.json` e mostra o nome da pasta em todos os projetos (se o estado for `outro`, avise que o `statusLine` atual será substituído). Se ele confirmar, rode `setup.py` sem argumentos (com `--forcar` se o estado era `outro`, já que a confirmação foi dada) e siga para o passo 3. Se ele recusar, pare aqui.
 
-3. **Setup do projeto.** Se `global.estado` for `plugin`, guie o usuário para destacar o nome do projeto atual, com uma única chamada de `AskUserQuestion` com duas perguntas:
+3. **Setup do projeto.** Com o setup global feito (`global.estado` era `plugin` ou acabou de ser gravado no passo 2), guie o usuário para destacar o nome do projeto atual, com uma única chamada de `AskUserQuestion` com duas perguntas:
    - **Nome**: até 3 opções tiradas de `sugestoes`, com a mais legível (a versão com espaços e maiúsculas) primeiro e marcada como recomendada. Se o projeto já estiver configurado, a primeira opção é o nome atual (`projeto.nome`), marcada como "atual". O usuário pode digitar outro nome em "Other".
    - **Cor**: as três cores de `cores`, com o código e o nome (ex.: "Lilás (45)"). Se o projeto já estiver configurado, a cor atual vem primeiro, marcada como "atual"; senão, `44` vem primeiro, marcada como recomendada.
 
    Com as respostas, rode `setup.py --projeto "<nome>" --cor <cor>`. Se `projeto.estado` já era `plugin` com o mesmo nome e cor, só diga que nada mudou.
 
-No fim, diga em uma linha onde a configuração foi gravada e que a status line aparece na próxima atualização da interface.
+No fim, diga em uma linha onde cada configuração foi gravada e que a status line aparece na próxima atualização da interface.
