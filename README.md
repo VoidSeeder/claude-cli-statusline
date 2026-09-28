@@ -24,15 +24,17 @@ Reinicie o Claude Code (o hook de início de sessão copia os scripts para `~/.c
 /statusline:setup
 ```
 
+Na primeira vez, ele oferece o setup global (grava em `~/.claude/settings.json` e mostra o nome da pasta em todos os projetos).
+
 ### Nome do projeto em destaque
 
-Dentro da pasta do projeto:
+Com o setup global feito, rode `/statusline:setup` de novo dentro da pasta do projeto. Ele sugere nomes (a partir da pasta e do remote do git) e pergunta a cor de fundo: `44` azul acinzentado (padrão), `45` lilás, `46` azul-água. Isso grava em `.claude/settings.local.json`.
+
+Para pular as perguntas:
 
 ```
 /statusline:setup "Meu Projeto" 45
 ```
-
-Isso grava em `.claude/settings.local.json`. Cores de fundo: `44` azul acinzentado (padrão), `45` lilás, `46` azul-água.
 
 ### Remover
 
