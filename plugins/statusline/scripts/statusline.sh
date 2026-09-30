@@ -234,15 +234,13 @@ printf -v txt_modelo '\033[1m%s\033[0m' "$modelo"
 # Acima do teto, o fundo vermelho ganha um espaço de cada lado para o texto não colar na borda
 ctx_pad=''; [ "$ctxk" -ge 150 ] && ctx_pad=' '
 printf -v direita '📄 \033[%sm%s%sk%s\033[0m' "$(cor_ctx "$ctxk")" "$ctx_pad" "$ctxk" "$ctx_pad"
-# Tokens gastos na conversa (em k, ou M a partir de 1 milhão)
-if [ "$gastos" -gt 0 ]; then
-    if [ "$gastos" -ge 1000000 ]; then
-        gastos_fmt="$(( gastos / 1000000 )).$(( gastos % 1000000 / 100000 ))M"
-    else
-        gastos_fmt="$(( (gastos + 500) / 1000 ))k"
-    fi
-    printf -v direita '%s 💰 \033[1;%sm%s\033[0m' "$direita" "$DOURADO" "$gastos_fmt"
+# Tokens gastos na conversa (em k, ou M a partir de 1 milhão); começa em 0k, como o contexto
+if [ "$gastos" -ge 1000000 ]; then
+    gastos_fmt="$(( gastos / 1000000 )).$(( gastos % 1000000 / 100000 ))M"
+else
+    gastos_fmt="$(( (gastos + 500) / 1000 ))k"
 fi
+printf -v direita '%s 💰 \033[1;%sm%s\033[0m' "$direita" "$DOURADO" "$gastos_fmt"
 # Limites de uso do plano (só vêm em assinaturas Pro/Max, após a 1ª resposta)
 if [ "$pct5h" -ge 0 ]; then
     printf -v direita '%s  ⏳ \033[%sm%s%%\033[0m' "$direita" "$(cor_pct "$pct5h")" "$pct5h"
