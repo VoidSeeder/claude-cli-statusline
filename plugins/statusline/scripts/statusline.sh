@@ -17,18 +17,20 @@ AMARELO='38;2;240;224;150'
 LARANJA='38;2;246;190;150'
 VERMELHO='38;2;240;160;160'
 LAVANDA='38;2;200;184;242'
+DOURADO='38;2;232;206;140'
 input=$(cat)
 # Pasta deste script: o uso.py fica ao lado dele
 export STATUSLINE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Extrai do JSON recebido via stdin: modelo, tamanho do contexto (em k tokens),
+# Extrai do JSON recebido via stdin: modelo, tamanho do contexto (em k tokens), total de
+# tokens gastos na conversa,
 # % dos limites de 5h (sessão) e 7 dias (semanal) e horários de reset de ambos.
 # Os limites ficam num cache compartilhado entre os terminais, sempre com o dado mais recente:
 #   - cada resposta nova do Claude (em qualquer sessão/terminal) grava os limites dela no cache;
 #   - se o cache passar 60s sem atualização, consulta a mesma fonte do /status em segundo
 #     plano (uso.py).
 # Campos ausentes viram -1 (números) ou "-" (textos).
-IFS=$'\t' read -r modelo ctxk pct5h reset5h pct7d reset7d dir_projeto dir_atual < <(python3 -c '
+IFS=$'\t' read -r modelo ctxk gastos pct5h reset5h pct7d reset7d dir_projeto dir_atual < <(python3 -c '
 import sys, json, os, time, tempfile, subprocess
 from datetime import datetime
 try:
@@ -80,7 +82,7 @@ if h5_in.get("used_percentage") is not None or d7_in.get("used_percentage") is n
             gravar(arq_sessao, str(duracao))
             # Limpa registros de sessões sem atividade há mais de 2 dias
             for nome_arq in os.listdir(DIR):
-                if nome_arq.startswith("sessao-") and idade(os.path.join(DIR, nome_arq)) > 2 * 86400:
+                if nome_arq.startswith(("sessao-", "tokens-")) and idade(os.path.join(DIR, nome_arq)) > 2 * 86400:
                     os.remove(os.path.join(DIR, nome_arq))
     except Exception:
         pass
@@ -113,6 +115,66 @@ modelo = ((d.get("model") or {}).get("display_name") or "?")
 tokens = (d.get("context_window") or {}).get("total_input_tokens") or 0
 ctxk = round(tokens / 1000)
 
+# Tokens gastos na conversa: soma o usage de cada resposta registrada no transcript
+# (incluindo subagentes). A leitura é incremental: guarda até onde cada arquivo foi lido
+# e os ids já somados (uma mesma resposta aparece em várias linhas).
+def tokens_gastos():
+    transcript = d.get("transcript_path")
+    if not transcript:
+        return 0
+    sessao = os.path.splitext(os.path.basename(transcript))[0]
+    arq_cache = os.path.join(DIR, "tokens-" + sessao)
+    try:
+        estado = json.load(open(arq_cache))
+    except Exception:
+        estado = {"offsets": {}, "ids": [], "total": 0}
+    ids = set(estado["ids"])
+    mudou = False
+    pasta_sub = os.path.join(os.path.dirname(transcript), sessao, "subagents")
+    try:
+        subs = [os.path.join(pasta_sub, n) for n in os.listdir(pasta_sub) if n.endswith(".jsonl")]
+    except OSError:
+        subs = []
+    for arq in [transcript] + subs:
+        offset = estado["offsets"].get(arq, 0)
+        try:
+            if os.path.getsize(arq) <= offset:
+                continue
+            with open(arq, "rb") as f:
+                f.seek(offset)
+                bloco = f.read()
+        except OSError:
+            continue
+        # Só consome até a última linha completa (a última pode estar sendo escrita)
+        fim = bloco.rfind(b"\n") + 1
+        for linha in bloco[:fim].splitlines():
+            if b"\"usage\"" not in linha:
+                continue
+            try:
+                m = json.loads(linha).get("message") or {}
+                u, mid = m.get("usage") or {}, m.get("id")
+            except Exception:
+                continue
+            if not u or not mid or mid in ids:
+                continue
+            ids.add(mid)
+            estado["total"] += sum(u.get(k) or 0 for k in ("input_tokens", "cache_creation_input_tokens",
+                                                           "cache_read_input_tokens", "output_tokens"))
+        estado["offsets"][arq] = offset + fim
+        mudou = True
+    if mudou:
+        estado["ids"] = list(ids)
+        try:
+            gravar(arq_cache, json.dumps(estado))
+        except Exception:
+            pass
+    return estado["total"]
+
+try:
+    gastos = tokens_gastos()
+except Exception:
+    gastos = 0
+
 # 3) Exibe o que está no cache; sem cache, usa os dados da resposta atual
 try:
     uso = json.load(open(CACHE))
@@ -134,7 +196,7 @@ ws = d.get("workspace") or {}
 dir_atual = ws.get("current_dir") or d.get("cwd") or os.getcwd()
 dir_projeto = ws.get("project_dir") or dir_atual
 
-print("\t".join(str(v) for v in (modelo, ctxk, pct_int(h5.get("pct")), reset5h,
+print("\t".join(str(v) for v in (modelo, ctxk, gastos, pct_int(h5.get("pct")), reset5h,
                                   pct_int(d7.get("pct")), reset7d, dir_projeto, dir_atual)))
 ' <<< "$input")
 
@@ -165,11 +227,22 @@ else
 fi
 [ -n "$branch" ] && printf -v esquerda '%s  \033[2m⎇ %s\033[0m' "$esquerda" "$branch"
 
-# Lado direito: modelo, contexto e limites de uso
-printf -v direita '\033[1m%s\033[0m' "$modelo"
+# Modelo: fica centralizado no espaço entre os dois lados
+printf -v txt_modelo '\033[1m%s\033[0m' "$modelo"
+
+# Lado direito: contexto, tokens gastos e limites de uso
 # Acima do teto, o fundo vermelho ganha um espaço de cada lado para o texto não colar na borda
 ctx_pad=''; [ "$ctxk" -ge 150 ] && ctx_pad=' '
-printf -v direita '%s  \033[%sm%s%sk%s\033[0m' "$direita" "$(cor_ctx "$ctxk")" "$ctx_pad" "$ctxk" "$ctx_pad"
+printf -v direita '📄 \033[%sm%s%sk%s\033[0m' "$(cor_ctx "$ctxk")" "$ctx_pad" "$ctxk" "$ctx_pad"
+# Tokens gastos na conversa (em k, ou M a partir de 1 milhão)
+if [ "$gastos" -gt 0 ]; then
+    if [ "$gastos" -ge 1000000 ]; then
+        gastos_fmt="$(( gastos / 1000000 )).$(( gastos % 1000000 / 100000 ))M"
+    else
+        gastos_fmt="$(( (gastos + 500) / 1000 ))k"
+    fi
+    printf -v direita '%s 💰 \033[1;%sm%s\033[0m' "$direita" "$DOURADO" "$gastos_fmt"
+fi
 # Limites de uso do plano (só vêm em assinaturas Pro/Max, após a 1ª resposta)
 if [ "$pct5h" -ge 0 ]; then
     printf -v direita '%s  ⏳ \033[%sm%s%%\033[0m' "$direita" "$(cor_pct "$pct5h")" "$pct5h"
@@ -191,9 +264,21 @@ t = re.sub(r"\x1b\[[0-9;]*m", "", sys.argv[1])
 print(sum(2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in t))
 ' "$1"
 }
-espaco=2
-if [ -n "$COLUMNS" ]; then
-    livre=$(( COLUMNS - MARGEM - $(largura "$esquerda") - $(largura "$direita") ))
-    [ "$livre" -gt 2 ] && espaco=$livre
+# Numa linha só, o modelo fica no meio do espaço entre a branch e o contexto. Se não couber
+# (com pelo menos 2 espaços de cada lado do modelo), o modelo e o lado direito descem para uma
+# segunda linha, encostados na borda. Como o script roda a cada refresh com o $COLUMNS atual,
+# o layout acompanha o redimensionamento da janela.
+direita2="$txt_modelo  $direita"
+if [ -z "$COLUMNS" ]; then
+    printf '%s  %s' "$esquerda" "$direita2"
+    exit 0
 fi
-printf '%s%*s%s' "$esquerda" "$espaco" '' "$direita"
+util=$(( COLUMNS - MARGEM ))
+livre=$(( util - $(largura "$esquerda") - $(largura "$txt_modelo") - $(largura "$direita") ))
+if [ "$livre" -ge 4 ]; then
+    antes=$(( livre / 2 ))
+    printf '%s%*s%s%*s%s' "$esquerda" "$antes" '' "$txt_modelo" "$(( livre - antes ))" '' "$direita"
+else
+    recuo=$(( util - $(largura "$direita2") )); [ "$recuo" -lt 0 ] && recuo=0
+    printf '%s\n%*s%s' "$esquerda" "$recuo" '' "$direita2"
+fi

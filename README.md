@@ -4,7 +4,8 @@ Status line para o [Claude Code](https://code.claude.com) com cores pastel. Most
 
 - nome do projeto (ou da pasta) e a branch do git
 - modelo em uso
-- tamanho do contexto em k tokens, com cores que esquentam até o teto de 150k
+- 📄 tamanho do contexto em k tokens, com cores que esquentam até o teto de 150k
+- 💰 total de tokens gastos na conversa atual (entrada, cache e saída, incluindo subagentes)
 - uso dos limites de 5 horas e 7 dias do plano, com o horário de reset de cada um
 
 Os limites ficam num cache compartilhado entre os terminais abertos, então todos mostram o dado mais recente.
