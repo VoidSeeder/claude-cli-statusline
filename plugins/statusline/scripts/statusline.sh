@@ -22,7 +22,7 @@ input=$(cat)
 # Pasta deste script: o uso.py fica ao lado dele
 export STATUSLINE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Extrai do JSON recebido via stdin: modelo, tamanho do contexto (em k tokens), total de
+# Extrai do JSON recebido via stdin: modelo, effort, tamanho do contexto (em k tokens), total de
 # tokens gastos na conversa,
 # % dos limites de 5h (sessão) e 7 dias (semanal) e horários de reset de ambos.
 # Os limites ficam num cache compartilhado entre os terminais, sempre com o dado mais recente:
@@ -30,7 +30,7 @@ export STATUSLINE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 #   - se o cache passar 60s sem atualização, consulta a mesma fonte do /status em segundo
 #     plano (uso.py).
 # Campos ausentes viram -1 (números) ou "-" (textos).
-IFS=$'\t' read -r modelo ctxk gastos pct5h reset5h pct7d reset7d dir_projeto dir_atual < <(python3 -c '
+IFS=$'\t' read -r modelo effort ctxk gastos pct5h reset5h pct7d reset7d dir_projeto dir_atual < <(python3 -c '
 import sys, json, os, time, tempfile, subprocess
 from datetime import datetime
 try:
@@ -113,6 +113,8 @@ def hora(ts, formato="%H:%M"):
 
 
 modelo = ((d.get("model") or {}).get("display_name") or "?")
+# Effort: só vem quando o modelo suporta
+effort = ((d.get("effort") or {}).get("level") or "-")
 
 tokens = (d.get("context_window") or {}).get("total_input_tokens") or 0
 ctxk = round(tokens / 1000)
@@ -198,7 +200,7 @@ ws = d.get("workspace") or {}
 dir_atual = ws.get("current_dir") or d.get("cwd") or os.getcwd()
 dir_projeto = ws.get("project_dir") or dir_atual
 
-print("\t".join(str(v) for v in (modelo, ctxk, gastos, pct_int(h5.get("pct")), reset5h,
+print("\t".join(str(v) for v in (modelo, effort, ctxk, gastos, pct_int(h5.get("pct")), reset5h,
                                   pct_int(d7.get("pct")), reset7d, dir_projeto, dir_atual)))
 ' <<< "$input")
 
@@ -231,6 +233,16 @@ fi
 
 # Modelo: fica centralizado no espaço entre os dois lados
 printf -v txt_modelo '\033[1m%s\033[0m' "$modelo"
+# Effort ao lado do modelo, sem rótulo: a cor indica o nível
+case "$effort" in
+    low)    cor_effort="1;$VERDE" ;;
+    medium) cor_effort="1;$AZUL" ;;
+    high)   cor_effort="1;$AMARELO" ;;
+    xhigh)  cor_effort="1;$VERMELHO"; effort='xHigh' ;;
+    max)    cor_effort='1;38;2;230;230;230;48;2;200;60;60'; effort=' max ' ;;  # texto branco em fundo vermelho
+    *)      cor_effort='1' ;;
+esac
+[ "$effort" != "-" ] && printf -v txt_modelo '%s \033[%sm%s\033[0m' "$txt_modelo" "$cor_effort" "$effort"
 
 # Lado direito: contexto, tokens gastos e limites de uso
 # Acima do teto, o fundo vermelho ganha um espaço de cada lado para o texto não colar na borda
