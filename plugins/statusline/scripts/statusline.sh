@@ -38,7 +38,9 @@ try:
 except Exception:
     d = {}
 
-DIR = os.path.expanduser("~/.cache/claude-statusline")
+# Cada perfil (CLAUDE_CONFIG_DIR) é uma conta com limites próprios: cache separado por perfil
+PERFIL = os.path.basename(os.path.normpath(os.environ.get("CLAUDE_CONFIG_DIR") or ".claude")).lstrip(".")
+DIR = os.path.expanduser("~/.cache/claude-statusline" + ("" if PERFIL == "claude" else "-" + PERFIL))
 CACHE = os.path.join(DIR, "uso.json")
 TRAVA = CACHE + ".buscando"
 BUSCA = os.path.join(os.environ["STATUSLINE_DIR"], "uso.py")

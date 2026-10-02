@@ -8,8 +8,13 @@ import subprocess
 import tempfile
 import urllib.request
 
-CREDENCIAIS = os.path.expanduser("~/.claude/.credentials.json")
-CACHE = os.path.expanduser("~/.cache/claude-statusline/uso.json")
+# Perfil ativo: CLAUDE_CONFIG_DIR quando definido, senão ~/.claude. Cada perfil é uma conta,
+# então lê as credenciais dele e grava num cache próprio (mesma regra do script da status line).
+CONFIG = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude")
+PERFIL = os.path.basename(os.path.normpath(CONFIG)).lstrip(".")
+CREDENCIAIS = os.path.join(CONFIG, ".credentials.json")
+CACHE = os.path.expanduser(
+    "~/.cache/claude-statusline" + ("" if PERFIL == "claude" else "-" + PERFIL) + "/uso.json")
 URL = "https://api.anthropic.com/api/oauth/usage"
 
 

@@ -1,6 +1,6 @@
 {
   "name": "statusline",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Status line com projeto, branch, modelo, tamanho do contexto, tokens gastos na conversa e limites de uso de 5h e 7 dias, com cores pastel.",
   "author": { "name": "voidseeder" },
   "homepage": "https://github.com/voidseeder/claude-cli-statusline",
